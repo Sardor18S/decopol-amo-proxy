@@ -312,14 +312,25 @@ function isAdSource(lead) {
 app.get('/sr_revenue_debug', async (req, res) => {
   const { from, to } = monthRange(req.query.from, req.query.to);
   const leads = await fetchAllLeads(
-    `filter[pipeline_id]=${SHOWROOM_PIPELINE_ID}&filter[statuses][0][pipeline_id]=${SHOWROOM_PIPELINE_ID}&filter[statuses][0][status_id]=${USPESHNO_STATUS_ID}&filter[closed_at][from]=${from}&filter[closed_at][to]=${to}&with=tags`
+    `filter[pipeline_id]=${SHOWROOM_PIPELINE_ID}&filter[statuses][0][pipeline_id]=${SHOWROOM_PIPELINE_ID}&filter[statuses][0][status_id]=${USPESHNO_STATUS_ID}&filter[closed_at][from]=${from}&filter[closed_at][to]=${to}&with=tags,custom_fields_values`
   );
+  const QAYERDAN_TOPDI_FIELD_ID = 915889;
+  function getQayerdanTopdi(lead) {
+    if (!lead.custom_fields_values) return null;
+    for (const cf of lead.custom_fields_values) {
+      if (cf.field_id === QAYERDAN_TOPDI_FIELD_ID) {
+        return cf.values?.[0]?.value ?? null;
+      }
+    }
+    return null;
+  }
   const simplified = leads.map((l) => ({
     id: l.id,
     name: l.name,
     price: l.price,
     tags: (l._embedded?.tags || []).map((t) => t.name),
     isAd: isAdSource(l),
+    qayerdan_topdi: getQayerdanTopdi(l),
   }));
   res.json({ ok: true, count: leads.length, leads: simplified });
 });
