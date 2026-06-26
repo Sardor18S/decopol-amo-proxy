@@ -309,6 +309,21 @@ function isAdSource(lead) {
   return false;
 }
 
+app.get('/sr_revenue_debug', async (req, res) => {
+  const { from, to } = monthRange(req.query.from, req.query.to);
+  const leads = await fetchAllLeads(
+    `filter[pipeline_id]=${SHOWROOM_PIPELINE_ID}&filter[statuses][0][pipeline_id]=${SHOWROOM_PIPELINE_ID}&filter[statuses][0][status_id]=${USPESHNO_STATUS_ID}&filter[closed_at][from]=${from}&filter[closed_at][to]=${to}&with=tags`
+  );
+  const simplified = leads.map((l) => ({
+    id: l.id,
+    name: l.name,
+    price: l.price,
+    tags: (l._embedded?.tags || []).map((t) => t.name),
+    isAd: isAdSource(l),
+  }));
+  res.json({ ok: true, count: leads.length, leads: simplified });
+});
+
 app.get('/sr_revenue_by_source', async (req, res) => {
   // SHOWROOM voronkasida (pipeline_id=10645466), USPESHNO (status_id=142) bo'lgan
   // lidlarni manba (Reklama/Organic) bo'yicha ajratib, savdo summasini hisoblaymiz.
