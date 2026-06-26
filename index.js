@@ -298,12 +298,29 @@ app.get('/cc_daily_history', async (req, res) => {
   res.json({ ok: true, total_leads: leads.length, by_day: byDay });
 });
 
+const QAYERDAN_TOPDI_FIELD_ID = 915889;
+
+function getQayerdanTopdi(lead) {
+  if (!lead.custom_fields_values) return null;
+  for (const cf of lead.custom_fields_values) {
+    if (cf.field_id === QAYERDAN_TOPDI_FIELD_ID) {
+      return cf.values?.[0]?.value ?? null;
+    }
+  }
+  return null;
+}
+
 function isAdSource(lead) {
-  const nm = lead.name || '';
-  if (/^facebook/i.test(nm) || /^instagram/i.test(nm)) return true;
-  if (lead._embedded?.tags) {
-    for (const t of lead._embedded.tags) {
-      if (/^fb/i.test(t.name)) return true;
+  const qt = getQayerdanTopdi(lead);
+  if (qt && /instagram|facebook/i.test(qt)) return true;
+  // Zaxira: agar "Qayerdan topdi" bo'sh bo'lsa, lid nomi/tegidan tekshiramiz
+  if (!qt) {
+    const nm = lead.name || '';
+    if (/^facebook/i.test(nm) || /^instagram/i.test(nm)) return true;
+    if (lead._embedded?.tags) {
+      for (const t of lead._embedded.tags) {
+        if (/^fb/i.test(t.name)) return true;
+      }
     }
   }
   return false;
@@ -314,16 +331,6 @@ app.get('/sr_revenue_debug', async (req, res) => {
   const leads = await fetchAllLeads(
     `filter[pipeline_id]=${SHOWROOM_PIPELINE_ID}&filter[statuses][0][pipeline_id]=${SHOWROOM_PIPELINE_ID}&filter[statuses][0][status_id]=${USPESHNO_STATUS_ID}&filter[closed_at][from]=${from}&filter[closed_at][to]=${to}&with=tags,custom_fields_values`
   );
-  const QAYERDAN_TOPDI_FIELD_ID = 915889;
-  function getQayerdanTopdi(lead) {
-    if (!lead.custom_fields_values) return null;
-    for (const cf of lead.custom_fields_values) {
-      if (cf.field_id === QAYERDAN_TOPDI_FIELD_ID) {
-        return cf.values?.[0]?.value ?? null;
-      }
-    }
-    return null;
-  }
   const simplified = leads.map((l) => ({
     id: l.id,
     name: l.name,
@@ -340,7 +347,7 @@ app.get('/sr_revenue_by_source', async (req, res) => {
   // lidlarni manba (Reklama/Organic) bo'yicha ajratib, savdo summasini hisoblaymiz.
   const { from, to } = monthRange(req.query.from, req.query.to);
   const leads = await fetchAllLeads(
-    `filter[pipeline_id]=${SHOWROOM_PIPELINE_ID}&filter[statuses][0][pipeline_id]=${SHOWROOM_PIPELINE_ID}&filter[statuses][0][status_id]=${USPESHNO_STATUS_ID}&filter[closed_at][from]=${from}&filter[closed_at][to]=${to}&with=tags`
+    `filter[pipeline_id]=${SHOWROOM_PIPELINE_ID}&filter[statuses][0][pipeline_id]=${SHOWROOM_PIPELINE_ID}&filter[statuses][0][status_id]=${USPESHNO_STATUS_ID}&filter[closed_at][from]=${from}&filter[closed_at][to]=${to}&with=tags,custom_fields_values`
   );
 
   let reklamaSavdo = 0,
