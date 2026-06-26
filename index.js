@@ -298,6 +298,49 @@ app.get('/cc_daily_history', async (req, res) => {
   res.json({ ok: true, total_leads: leads.length, by_day: byDay });
 });
 
+function isAdSource(lead) {
+  const nm = lead.name || '';
+  if (/^facebook/i.test(nm) || /^instagram/i.test(nm)) return true;
+  if (lead._embedded?.tags) {
+    for (const t of lead._embedded.tags) {
+      if (/^fb/i.test(t.name)) return true;
+    }
+  }
+  return false;
+}
+
+app.get('/sr_revenue_by_source', async (req, res) => {
+  // SHOWROOM voronkasida (pipeline_id=10645466), USPESHNO (status_id=142) bo'lgan
+  // lidlarni manba (Reklama/Organic) bo'yicha ajratib, savdo summasini hisoblaymiz.
+  const { from, to } = monthRange(req.query.from, req.query.to);
+  const leads = await fetchAllLeads(
+    `filter[pipeline_id]=${SHOWROOM_PIPELINE_ID}&filter[statuses][0][pipeline_id]=${SHOWROOM_PIPELINE_ID}&filter[statuses][0][status_id]=${USPESHNO_STATUS_ID}&filter[closed_at][from]=${from}&filter[closed_at][to]=${to}&with=tags`
+  );
+
+  let reklamaSavdo = 0,
+    organicSavdo = 0,
+    reklamaSoni = 0,
+    organicSoni = 0;
+
+  leads.forEach((lead) => {
+    const priceUsd = Math.round(((lead.price || 0) / UZS_TO_USD) * 100) / 100;
+    if (isAdSource(lead)) {
+      reklamaSavdo += priceUsd;
+      reklamaSoni++;
+    } else {
+      organicSavdo += priceUsd;
+      organicSoni++;
+    }
+  });
+
+  res.json({
+    ok: true,
+    total_leads_checked: leads.length,
+    reklama: { savdo: Math.round(reklamaSavdo * 100) / 100, soni: reklamaSoni },
+    organic: { savdo: Math.round(organicSavdo * 100) / 100, soni: organicSoni },
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Decopol amoCRM Proxy ${PORT}-portda ishga tushdi`);
